@@ -6,3 +6,4 @@
 1791290606641:::1 POST: /api/users
 1791290618270:::1 GET: /api/users/1003
 1791290650142:::1 PATCH: /api/users/1003
+1791292666076:::1 GET: /api/users/1052
