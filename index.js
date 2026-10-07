@@ -1,9 +1,38 @@
 const express = require("express");
 const fs = require("fs");
-const users = require("./MOCK_DATA.json");
+const mongoose = require("mongoose");
 
 const app = express();
 const PORT = 8000;
+
+//connection
+mongoose.connect("mongodb://127.0.0.1:27017/saumya")
+.then(() => console.log("MongoDB Connected"))
+.catch((err) => console.log("Mongo Error", err));
+
+// Schema
+const userSchema = new mongoose.Schema({
+    firstName: {
+        type : String,
+        required: true,
+    },
+    lastName: {
+        type: String,
+    },
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+    },
+    jobTitle: {
+        type: String,
+    },
+    gender: {
+        type: String,
+    }
+}, { timestamps: true });
+
+const User = mongoose.model('user', userSchema);
 
 //Middleware - Plugin
 app.use(express.urlencoded({ extended: false }));
@@ -15,55 +44,52 @@ app.use((req, res, next) => {
 });
 
 //routes
-app.get("/users", (req, res) => {
+app.get("/users", async(req, res) => {
+    const allDbUsers = await User.find({});
     const html = `
     <ul> 
-        ${users.map((user) => `<li> ${user.first_name}</li>`).join("")} 
+        ${allDbUsers.map((user) => `<li> ${user.firstName} - ${user.email}</li>`).join("")} 
     </ul>
     `;
     res.send(html);
 })
 
 // REST API
-app.get("/api/users", (req,res) => {
-    res.setHeader("X-MyName", "Saumya Patel"); // Custom Header
-    // Always add X to custom headers
-    return res.json(users);
+app.get("/api/users", async(req,res) => {
+    const allDbUsers = await User.find({});
+    return res.json(allDbUsers);
 });
 
 app.route('/api/users/:id')
-.get((req, res) => {
-    const id = Number(req.params.id);
-    const user = users.find((user) => user.id === id);
+.get(async (req, res) => {
+    const user = await User.findById(req.params.id);
     if(!user) return res.status(404).json({error: "User not found"});
     return res.json(user);
 })
-.patch((req, res) => {
-    const id = Number(req.params.id);
-    const user = users.find((user) => user.id === id);
-    Object.assign(user, req.body);
-    fs.writeFile("./MOCK_DATA.json", JSON.stringify(users), (err, data) => {
-        return res.json({ status : "success", user:user});
-    });
-})
-.delete((req, res) => {
-    const id = Number(req.params.id);
-    const index = users.findIndex((user) => user.id === id);
-    users.splice(index, 1);
-    fs.writeFile("./MOCK_DATA.json", JSON.stringify(users), (err, data) => {
-        return res.json({ status : "success"});
-    });
+.patch(async(req, res) => {
+    await User.findByIdAndUpdate(req.params.id, { lastName: "Changed"});
+    return res.json({status : "Success"});
+})                    
+.delete(async (req, res) => {
+    await User.findByIdAndDelete(req.params.id);
+    return res.json({status : "Success"});
 });
 
-app.post("/api/users", (req, res) => {
+app.post("/api/users", async(req, res) => {
     const body = req.body;
     if(!body || !body.first_name || !body.last_name || !body.gender || !body.email || !body.job_title) {
         return res.status(400).json({ msg : "All fields are required"});
     }
-    users.push({id: users.length + 1, ...body});
-    fs.writeFile("./MOCK_DATA.json", JSON.stringify(users), (err, data) => {
-        return res.status(201).json({ status : "success", id: users.length});
+    
+    const result = await User.create({
+        firstName: body.first_name,
+        lastName: body.last_name,
+        email: body.email,
+        jobTitle: body.job_title,
+        gender: body.gender,
     });
+
+    return res.status(201).json({msg: "success"});
 });
 
 
